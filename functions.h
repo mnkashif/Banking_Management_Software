@@ -16,13 +16,20 @@
 
 
 
-#define USER 3
-#define ADMIN 4
-#define JOINT_USER 5
+#define USER 4
+#define ADMIN 5
+#define JOINT_USER 6
 
-#define SIGN_IN_AS_USER 6  
-#define SIGN_IN_AS_ADMIN 7
-#define SIGN_IN_AS_JOINT 8
+#define SIGN_IN_AS_USER 7  
+#define SIGN_IN_AS_ADMIN 8
+#define SIGN_IN_AS_JOINT 9
+
+#define DEPOSIT 10
+#define WITHDRAW 11
+#define BALANCE 12
+#define PASSWORD 13
+#define DETAILS 14
+#define EXIT 15
 
 #define SIZE 100
 
@@ -40,5 +47,11 @@ struct account{
 };
 
 int signup(int option, char username[], char password[]);
-void get_details_from_user(int sock, int option);
+int get_details_from_user(int sock, int option);
 int signin(int option, char username[], char password[]);
+int deposit(char username[], int amount);
+int withdraw(char username[], int amount);
+int balance(char username[]);
+int change_password(char username[], char pwd[]);
+char* get_user_details(char username[]);
+
