@@ -6,6 +6,7 @@ void *client_handler(void* socket_desc)
     int socket=*(int*)socket_desc;
     char username[SIZE];
     char password[SIZE];
+    int curr_type=0;
     while(1)
     {
         char* return_message=(char*)malloc(SIZE);
@@ -14,7 +15,12 @@ void *client_handler(void* socket_desc)
         read(socket,option_string,SIZE);
         int option=atoi(option_string);
         printf("option= %d\n",option);
-        if(option==EXIT)
+        if(option==SIGN_OUT)
+        {
+            signout(username);
+            break;
+        }
+         if(option==EXIT)
         {
             break;
         }
@@ -23,7 +29,8 @@ void *client_handler(void* socket_desc)
 
             read(socket,username,SIZE);
             read(socket,password,SIZE);
-            int b=signup(option,username,password);
+            curr_type=option;
+            int b=signup(option,curr_type,username,password);
 
 
             if(b==-1)
@@ -44,6 +51,7 @@ void *client_handler(void* socket_desc)
             // printf("tp\n");
             read(socket,username,SIZE);
             read(socket,password,SIZE);
+            curr_type=option;
             int b=signin(option,username,password);
 
 
@@ -137,10 +145,80 @@ void *client_handler(void* socket_desc)
             return_message=get_user_details(username);
 
         }
+        else if(option==ADD_USER)
+        {
+            char _username[SIZE];
+			char _password[SIZE];
+            char type_string[SIZE];
+			read(socket, type_string, SIZE);
+			read(socket, _username, SIZE);
+			read(socket, _password, SIZE);
+            int type=atoi(type_string);
+            int b=signup(type,curr_type,_username,_password);
+             if(b==-1)
+            {
+                return_message="Account could not be created.";
+            }
+            else
+            {
+                return_message="Account created successfully.";
+
+            }
+            
+        }
+        else if(option==DELETE_USER)
+        {
+            char _username[SIZE];
+			read(socket, _username, SIZE);
+            int b=delete_user(_username);
+           if(b==-1)
+            {
+                return_message="User could not be deleted.";
+            }
+            else
+            {
+                return_message="User deleted Successfully.";
+
+            }
+
+            
+        }
+        else if(option==MODIFY_USER)
+        {
+            char old_username[SIZE];
+            char new_username[SIZE];
+
+            char new_password[SIZE];
+			read(socket, old_username, SIZE);
+			read(socket, new_username, SIZE);
+			read(socket, new_password, SIZE);
+
+            int b=modify_user(old_username,new_username,new_password);
+             if(b==-1)
+            {
+                return_message="User could not be modified.";
+            }
+            else
+            {
+                return_message="User modified Successfully.";
+
+            }
+
+
+
+
+            
+        }
+        else if(option==GET_USER_DETAILS)
+        {
+            char _username[SIZE];
+			read(socket, _username, SIZE);
+            return_message=get_user_details(_username);
+          
+
+
+        }
         write(socket , return_message ,SIZE ); 
-
-
-
 
     }
     return 0;

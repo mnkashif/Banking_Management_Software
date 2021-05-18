@@ -1,7 +1,7 @@
 #include"functions.h"
 
 
-int signup(int option, char username[], char password[])
+int signup(int option,int maker, char username[], char password[])
 {
 
     char filename[SIZE];
@@ -38,8 +38,14 @@ int signup(int option, char username[], char password[])
         u.type=ADMIN;
 
     }
-
-    
+    if(maker!=SIGN_IN_AS_ADMIN && maker!=SIGN_UP_AS_ADMIN)
+    {
+        u.active=1;
+    }
+    else
+    {
+        u.active=0;
+    }
     write(fd,&u,sizeof(struct user));
     struct account acc;
     acc.balance = 0;
@@ -84,8 +90,7 @@ int signin(int option, char username[], char password[]){
     char extension[] = ".txt";
     int fd;
     strcat(filename,extension);
-    // printf("filename :- %s\n",filename);
-    // printf("%s\n",get_user_details(username));
+   
     fd = open(filename,O_RDONLY,0644);
     if(fd == -1){
         perror("User does not exist"); return -1;
@@ -95,10 +100,23 @@ int signin(int option, char username[], char password[]){
     if(fcntl(fd, F_SETLKW, &lock)==-1) {perror("fcntl") ; return -1;}
     lseek(fd,0,SEEK_SET);
     read(fd,&u,sizeof(struct user));
+    if(u.active==1 && (u.type==USER || u.type==ADMIN))
+    {
+        lock.l_type = F_UNLCK;
+        fcntl(fd,F_SETLKW,&lock);
+        close(fd);
+        return -1;
+    }
+    u.active=1;
+    printf("username : %s \npassword : %s \nbalance : %d\nActive : %d\n", u.username,u.password,u.type,u.active);
+
+    lseek(fd,0,SEEK_SET);
+    write(fd,&u,sizeof(struct user));
     if((strcmp(u.password,password)!=0) || (option==SIGN_IN_AS_USER && (u.type!=USER)) || (option==SIGN_IN_AS_ADMIN && (u.type!=ADMIN)) || (option==SIGN_IN_AS_JOINT && (u.type!=JOINT_USER))) return -1;
     lock.l_type = F_UNLCK;
     fcntl(fd,F_SETLKW,&lock);
     close(fd);
+
     return 0;
 }
 
@@ -122,7 +140,6 @@ int deposit(char username[], int amount){
 
     struct account acc;
     if(fcntl(fd, F_SETLKW, &lock)==-1) {perror("fcntl") ; return -1;}
-	printf("Depositing %d in your account\n",amount);		
 
     lseek(fd,sizeof(struct user),SEEK_SET);
     if(read(fd,&acc,sizeof(struct account))==-1) {perror("read"); return -1;}
@@ -156,7 +173,6 @@ int withdraw(char username[], int amount){
     }
     struct account acc;
     if(fcntl(fd, F_SETLKW, &lock)==-1) {perror("fcntl") ; return -1;}
-	printf("Withdrawing %d from your account\n",amount);		
 
     lseek(fd,sizeof(struct user),SEEK_SET);
     if(read(fd,&acc,sizeof(struct account)) == -1) {perror("read"); return -1;}
@@ -245,6 +261,7 @@ char* get_user_details(char username[]){
     char extension[] = ".txt";
     int fd;
     strcat(filename,extension);
+
     fd = open(filename,O_RDWR,0644);
     if(fd == -1){
         perror("open"); 
@@ -277,8 +294,101 @@ char* get_user_details(char username[]){
     {
         sprintf(type,"%s","admin");
     }
-    sprintf(return_string,"username : %s \npassword : %s \ntype : %s\nbalance : %d",
-    u.username,u.password,type,acc.balance);
+    sprintf(return_string,"username : %s \npassword : %s \ntype : %s\nbalance : %d\nActive : %d\n",
+    u.username,u.password,type,acc.balance,u.active);
     close(fd);
     return return_string;
+}
+
+
+int delete_user(char username[])
+{       
+    static struct flock lock;
+    lock.l_type = F_WRLCK;
+    lock.l_start = 0;
+    lock.l_whence = SEEK_SET;
+    lock.l_len = 0;
+    lock.l_pid = getpid();
+
+    char filename[SIZE];
+    strcpy(filename,username);
+    char extension[] = ".txt";
+    strcat(filename,extension);
+    int fd = open(filename,O_RDWR,0644);
+    if(fd == -1){ perror("open");}
+    if(fcntl(fd, F_SETLKW, &lock)==-1) {perror("fcntl");}
+
+    return unlink(filename);
+
+}
+
+int modify_user(char old_username[], char new_username[], char new_password[])
+{
+
+    static struct flock lock;
+    lock.l_type = F_WRLCK;
+    lock.l_start = 0;
+    lock.l_whence = SEEK_SET;
+    lock.l_len = 0;
+    lock.l_pid = getpid();
+    char filename[SIZE];
+    strcpy(filename,old_username);
+    char extension[] = ".txt";
+    int fd,option;
+    strcat(filename,extension);
+    fd = open(filename,O_RDWR,0644);
+    if(fd == -1){
+        perror("mod user"); return -1;
+    }
+    struct user u;
+    if(fcntl(fd, F_SETLKW, &lock)==-1) {perror("fcntl");}
+    lseek(fd,0,SEEK_SET);
+    if(read(fd,&u,sizeof(struct user))==-1) { perror("read"); return -1; }
+    int b=delete_user(old_username);
+    if(b==-1)
+        return -1;
+    if(u.type==USER) option = SIGN_UP_AS_USER;
+    else option = SIGN_UP_AS_JOINT;
+    strcpy(u.username,new_username);
+    b=signup(option,SIGN_UP_AS_ADMIN,new_username,new_password);
+    if(b==-1)   
+        return -1;
+    lock.l_type = F_UNLCK;
+    fcntl(fd,F_SETLKW,&lock);
+    close(fd);
+    return 0;
+
+
+
+}
+
+void signout(char username[])
+{
+    static struct flock lock;
+    lock.l_type = F_WRLCK;
+    lock.l_start = 0;
+    lock.l_whence = SEEK_SET;
+    lock.l_len = 0;
+    lock.l_pid = getpid();
+    char filename[SIZE];
+    strcpy(filename,username);
+    char extension[] = ".txt";
+    int fd,option;
+    strcat(filename,extension);
+    fd = open(filename,O_RDWR,0644);
+    
+    struct user u;
+    if(fcntl(fd, F_SETLKW, &lock)==-1) {perror("fcntl");}
+    lseek(fd,0,SEEK_SET);
+    read(fd,&u,sizeof(struct user));
+
+    u.active=0;
+    lseek(fd,0,SEEK_SET);
+    write(fd,&u,sizeof(struct user));
+    
+    lock.l_type = F_UNLCK;
+    fcntl(fd,F_SETLKW,&lock);
+    close(fd);
+
+
 }
