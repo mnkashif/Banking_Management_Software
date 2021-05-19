@@ -91,7 +91,7 @@ int signin(int option, char username[], char password[]){
     int fd;
     strcat(filename,extension);
    
-    fd = open(filename,O_RDONLY,0644);
+    fd = open(filename,O_RDWR,0644);
     if(fd == -1){
         perror("User does not exist"); return -1;
     }
@@ -107,6 +107,7 @@ int signin(int option, char username[], char password[]){
         close(fd);
         return -1;
     }
+    printf("username : %s \npassword : %s \nbalance : %d\nActive : %d\n", u.username,u.password,u.type,u.active);
     u.active=1;
     printf("username : %s \npassword : %s \nbalance : %d\nActive : %d\n", u.username,u.password,u.type,u.active);
 
